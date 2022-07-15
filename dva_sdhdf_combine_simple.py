@@ -136,6 +136,7 @@ def get_times_and_coords(all_files):
             dec = np.concatenate([dec,[pos[j][2]]])
             ra = np.concatenate([ra,[pos[j][3]]])
             el = np.concatenate([el,[pos[j][0]]])
+            az = np.concatenate([az,[pos[j][1]]])
         
         dec_set = np.concatenate([dec_set,dec])
         ra_set = np.concatenate([ra_set,ra])
