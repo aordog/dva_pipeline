@@ -60,44 +60,48 @@ def combine(dir_files,outfiles,t1,t2,outname,
     
     if m2 < 59:
         m2_use = m2+2
+        h2_use = h2
     else:
-        m2_use = m2
+        m2_use = 0
+        h2_use = h2+1
         
     if m1 > 0:
         m1_use = m1-1
+        h1_use = h1
     else:
-        m1_use = m1
+        m1_use = 59
+        h1_use = h1-1
 
     all_times = []
 
     if d1 == d2:       
-        if h1 == h2:
+        if h1_use == h2_use:
             for minute in range(m1_use,m2_use):
-                all_times.append(d1+'T'+f"{h1:02}"+':'+f"{minute:02}")
+                all_times.append(d1+'T'+f"{h1_use:02}"+':'+f"{minute:02}")
         else:
-            for hour in range(h1,h2+1):
-                if hour == h1:
+            for hour in range(h1_use,h2_use+1):
+                if hour == h1_use:
                     for minute in range(m1_use,60):
                         all_times.append(d1+'T'+f"{hour:02}"+':'+f"{minute:02}")
-                if hour == h2:
+                if hour == h2_use:
                     for minute in range(0,m2_use):
                         all_times.append(d1+'T'+f"{hour:02}"+':'+f"{minute:02}")
-                if ((hour>h1) & (hour<h2)):
+                if ((hour>h1_use) & (hour<h2_use)):
                     for minute in range(0,60):
                         all_times.append(d1+'T'+f"{hour:02}"+':'+f"{minute:02}")
     else:
         for day in days:
             if day == d1:       
-                for hour in range(h1,24):
-                    if hour == h1:
+                for hour in range(h1_use,24):
+                    if hour == h1_use:
                         for minute in range(m1_use,60):
                             all_times.append(day+'T'+f"{hour:02}"+':'+f"{minute:02}")
                     else:
                         for minute in range(0,60):
                             all_times.append(day+'T'+f"{hour:02}"+':'+f"{minute:02}")
             else:                   
-                for hour in range(0,h2+1):
-                    if hour == h2:
+                for hour in range(0,h2_use+1):
+                    if hour == h2_use:
                         for minute in range(0,m2_use):
                             all_times.append(day+'T'+f"{hour:02}"+':'+f"{minute:02}")
                     else:
@@ -122,13 +126,15 @@ def combine(dir_files,outfiles,t1,t2,outname,
     RR_set,LL_set,reRL_set,imRL_set = get_data_products(all_files,nt,nf,len(freq),freq_avg,freq_s)
     
     if az_scan_trim == True:
-        trim_flag = trim_azimuth_scans(RR_set,LL_set,reRL_set,imRL_set,t1,t2,
+        trim_flag, wkeep = trim_azimuth_scans(RR_set,LL_set,reRL_set,imRL_set,t1,t2,
                           t_set,az_set,el_set,ra_set,dec_set,noise,int_time,corrupt)
     else:
         trim_flag = np.zeros(len(t_set))
+        wkeep = list(set(range(0,len(t_set))))
     
+    #print(wkeep)
     make_new_file(outname,outfiles,all_files[0],RR_set,LL_set,reRL_set,imRL_set,
-                  t_set,az_set,el_set,ra_set,dec_set,freq,noise,int_time,corrupt,trim_flag)
+                  t_set,az_set,el_set,ra_set,dec_set,freq,noise,int_time,corrupt,trim_flag,wkeep)
     
     return None
 
@@ -241,6 +247,7 @@ def trim_azimuth_scans(RR_set,LL_set,reRL_set,imRL_set,t1,t2,
             wbad_RA.append(i)
             
     wbad_t = list(np.where( (t_set_plt < tstart_plt) | (t_set_plt > tstop_plt) ))[0]
+    wkeep = list(np.where( (t_set_plt >= tstart_plt) & (t_set_plt <= tstop_plt) ))[0]
     
     wgood = list(set(range(0,len(t_set)))-set(wbad_RA)-set(wbad_t))
        
@@ -269,11 +276,11 @@ def trim_azimuth_scans(RR_set,LL_set,reRL_set,imRL_set,t1,t2,
 
     #print(trim_flag)
 
-    return trim_flag
+    return trim_flag, wkeep
 
 
 def make_new_file(outname,outfiles,file_ex,RR_set,LL_set,reRL_set,imRL_set,
-                  t_set,az_set,el_set,ra_set,dec_set,freq,noise,int_time,corrupt,trim_flag):
+                  t_set,az_set,el_set,ra_set,dec_set,freq,noise,int_time,corrupt,trim_flag,wkeep):
     
     cmd2 = 'cp '+file_ex+' '+outfiles+outname+'.h5'
     os.system(cmd2)
@@ -287,15 +294,16 @@ def make_new_file(outname,outfiles,file_ex,RR_set,LL_set,reRL_set,imRL_set,
     file['data']['beam_0']['band_SB0'].create_group(f"scan_0")
     
     # Create power dataset:
-    dat = np.empty((len(t_set), 4, len(freq)), dtype=float)
+    dat = np.empty((len(t_set[wkeep]), 4, len(freq)), dtype=float)
     file['data']['beam_0']['band_SB0']['scan_0'].create_dataset("data", data=dat)
-    file['data']['beam_0']['band_SB0']['scan_0']['data'][:,0,:] = RR_set
-    file['data']['beam_0']['band_SB0']['scan_0']['data'][:,1,:] = LL_set
-    file['data']['beam_0']['band_SB0']['scan_0']['data'][:,2,:] = reRL_set
-    file['data']['beam_0']['band_SB0']['scan_0']['data'][:,3,:] = imRL_set
+    file['data']['beam_0']['band_SB0']['scan_0']['data'][:,0,:] = RR_set[wkeep,:]
+    file['data']['beam_0']['band_SB0']['scan_0']['data'][:,1,:] = LL_set[wkeep,:]
+    file['data']['beam_0']['band_SB0']['scan_0']['data'][:,2,:] = reRL_set[wkeep,:]
+    file['data']['beam_0']['band_SB0']['scan_0']['data'][:,3,:] = imRL_set[wkeep,:]
     
     # Create metadata with timestamps and coordinates:
-    metadata_content = [t_set,az_set,el_set,ra_set,dec_set,int_time,corrupt,noise,trim_flag]  
+    metadata_content = [t_set[wkeep],az_set[wkeep],el_set[wkeep],ra_set[wkeep],
+                        dec_set[wkeep],int_time[wkeep],corrupt[wkeep],noise[wkeep],trim_flag[wkeep]]  
     #print(noise)
     col_names = ["utc", "azimuth", "elevation", "right_ascension", "declination", "integration_time",
                  "corrupted","noise_state","trim_scan_flag"]
