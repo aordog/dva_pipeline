@@ -30,7 +30,7 @@ def Combine_Into_RFI_Events(possible_RFI):
         rfi_start = possible_RFI[current_idx]
         rfi_duration = 1
 
-        while remaining_idxes >= 3:
+        while remaining_idxes >= 1:
             remaining_idxes = (len(possible_RFI) - current_idx)
             previous_idx = current_idx - 1
             idx_gap = (possible_RFI[current_idx] - possible_RFI[previous_idx])
@@ -99,9 +99,7 @@ def DVA_Find_Possible_RFI_Events(freq_idx, baseline_multiplier, polarized_set):
     scan_baseline = np.nanmedian(polarized_set[:,freq_idx])
     scan_threshold = scan_baseline*baseline_multiplier
 
-    print("np.shape(polarized_set[:, freq_idx])", np.shape(polarized_set[:, freq_idx]))
     possible_RFI_idxes = np.where(polarized_set[:, freq_idx] >= scan_threshold)
-    print("np.shape(possible_RFI_idxes)", np.shape(possible_RFI_idxes))
     possible_RFI_events = Combine_Into_RFI_Events(possible_RFI_idxes[0])
     return possible_RFI_events  #Returns [time_idx, idx_duration]
 
@@ -151,7 +149,6 @@ def RFI_Detection(freq_slope_threshold, freq_chosen, baseline_multiplier, freq, 
 
 
     confirmed_RFI_results = []
-    print(np.shape(polarized_set))
     possible_RFI_events = DVA_Find_Possible_RFI_Events(freq_idx, baseline_multiplier, polarized_set)
     possible_RFI_starts = DVA_Find_Possible_Event_Start(freq_idx, polarized_set, possible_RFI_events)
     possible_RFI_ends = DVA_Find_Possible_Event_End(freq_idx, polarized_set, possible_RFI_events)
@@ -190,3 +187,18 @@ def RFI_Detection(freq_slope_threshold, freq_chosen, baseline_multiplier, freq, 
 # confirmed_RFI_results = RFI_Detection(freq_slope_threshold = 1e5, freq_chosen = 844, baseline_multiplier = 3)
 
 # interact(RFI_Detection(scan = 1045))
+
+#TODO:Create GenerateRfiIndexes() Where I'm merging RFI's and creating an RFI mask
+def GenerateRfiIndexes(confirmed_RFI_results, freq):
+    RFI_freq_mask = np.zeros(len(freq))
+    print("len(RFI_freq_mask)", len(RFI_freq_mask))
+    for rfi_number in range(0, len(confirmed_RFI_results)-1):
+        # DETERMINE RFI REGION --------------------------------------------------------------------------------------------------------
+        t1_plt = confirmed_RFI_results[rfi_number][0]
+        t2_plt = confirmed_RFI_results[rfi_number][1]
+        for rfi_idx in range(t1_plt, t2_plt):
+            RFI_freq_mask[rfi_idx] = 1
+
+    rfi_idxes = np.array(np.where(RFI_freq_mask == 1))
+    return rfi_idxes
+#TODO: I hate the naming of this return
