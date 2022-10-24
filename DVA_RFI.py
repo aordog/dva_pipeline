@@ -23,14 +23,12 @@ def Apply_Mask(mask, input_array): #TODO: This needs to be updated to implement 
 def Combine_Into_RFI_Events(possible_RFI):
     Combined_RFI_events = [] 
     remaining_idxes = len(possible_RFI)
-    try:
-        if remaining_idxes == 0:
-            raise Exception()
+    if remaining_idxes > 0:
         current_idx = 0
         rfi_start = possible_RFI[current_idx]
         rfi_duration = 1
 
-        while remaining_idxes >= 1:
+        while remaining_idxes >= 2:
             remaining_idxes = (len(possible_RFI) - current_idx)
             previous_idx = current_idx - 1
             idx_gap = (possible_RFI[current_idx] - possible_RFI[previous_idx])
@@ -41,11 +39,10 @@ def Combine_Into_RFI_Events(possible_RFI):
                 #Close current event
                 Combined_RFI_events.append([rfi_start, rfi_duration])
                 #Initiate next event starting on the current_idx
+                rfi_start = possible_RFI[current_idx]
                 rfi_duration = 1
                 current_idx += 1
-                rfi_start = possible_RFI[current_idx]
-    except Exception as err:
-        print()
+
     return Combined_RFI_events #[idx, idx_duration]
 
 #**************************************************************************************
@@ -132,10 +129,15 @@ def DVA_Find_Possible_Event_End(freq_idx, polarized_set, possible_RFI_events):
         end_found = False
         event_end_idx = possible_RFI_events[event][0] + possible_RFI_events[event][1]
         while not end_found:
-            event_end_idx  = event_end_idx + 1
-            if (polarized_set[event_end_idx, freq_idx] <= scan_baseline):
+            if event_end_idx <= (len(polarized_set[:, freq_idx])-2):
+                event_end_idx  = event_end_idx + 1
+                if (polarized_set[event_end_idx, freq_idx] <= scan_baseline):
+                    end_event_idxes.append(event_end_idx)
+                    end_found = True
+            else:
                 end_event_idxes.append(event_end_idx)
                 end_found = True
+                break
                 
     return end_event_idxes
 
@@ -143,19 +145,13 @@ def DVA_Find_Possible_Event_End(freq_idx, polarized_set, possible_RFI_events):
 #**************************************************************************************
 #                                  Main Function
 #**************************************************************************************
-def RFI_Detection(freq_slope_threshold, freq_chosen, baseline_multiplier, freq, polarized_set):
-    freq_idx = find_nearest_idx(freq, freq_chosen)
-    # freq_measured = freq[freq_idx]
-
-
+def RFI_Detection(freq_slope_threshold, freq_idx, baseline_multiplier, polarized_set):
     confirmed_RFI_results = []
     possible_RFI_events = DVA_Find_Possible_RFI_Events(freq_idx, baseline_multiplier, polarized_set)
     possible_RFI_starts = DVA_Find_Possible_Event_Start(freq_idx, polarized_set, possible_RFI_events)
     possible_RFI_ends = DVA_Find_Possible_Event_End(freq_idx, polarized_set, possible_RFI_events)
-    try:
-        if len(possible_RFI_events) == 0:
-            raise Exception("No possible RFI Events found")
-        print("Number of possible RFI event:", len(possible_RFI_events))
+    if len(possible_RFI_events) != 0:
+        # print("Number of possible RFI event:", len(possible_RFI_events))
         for event in range(0, len(possible_RFI_events)-1):
             fixed_RFI_bandwitdh = 15
                 # DETERMINE RFI REGION --------------------------------------------------------------------------------------------------------
@@ -178,9 +174,8 @@ def RFI_Detection(freq_slope_threshold, freq_chosen, baseline_multiplier, freq, 
             #     confirmed_RFI_results.append([t1_plt, t2_plt, freq1, freq2])
 
 
-        print("Number of confirmed RFI regions:", len(confirmed_RFI_results))
-    except Exception as err:
-        print(repr(err))
+        # print("Number of confirmed RFI regions:", len(confirmed_RFI_results))
+
     
     return confirmed_RFI_results
 
@@ -189,16 +184,27 @@ def RFI_Detection(freq_slope_threshold, freq_chosen, baseline_multiplier, freq, 
 # interact(RFI_Detection(scan = 1045))
 
 #TODO:Create GenerateRfiIndexes() Where I'm merging RFI's and creating an RFI mask
-def GenerateRfiIndexes(confirmed_RFI_results, freq):
-    RFI_freq_mask = np.zeros(len(freq))
-    print("len(RFI_freq_mask)", len(RFI_freq_mask))
+# def GenerateRfiIndexes(confirmed_RFI_results, freq):
+#     RFI_freq_mask = np.zeros(len(freq))
+#     for rfi_number in range(0, len(confirmed_RFI_results)-1):
+#         # DETERMINE RFI REGION --------------------------------------------------------------------------------------------------------
+#         t1_plt = confirmed_RFI_results[rfi_number][0]
+#         t2_plt = confirmed_RFI_results[rfi_number][1]
+#         for rfi_idx in range(t1_plt, t2_plt):
+#             RFI_freq_mask[rfi_idx] = 1
+
+#     rfi_idxes = np.array(np.where(RFI_freq_mask == 1))
+#     return rfi_idxes
+# #TODO: I hate the naming of this return
+def GenerateRfiIndexes(confirmed_RFI_results, t_plt):
+    RFI_time_mask = np.zeros(len(t_plt))
     for rfi_number in range(0, len(confirmed_RFI_results)-1):
         # DETERMINE RFI REGION --------------------------------------------------------------------------------------------------------
         t1_plt = confirmed_RFI_results[rfi_number][0]
         t2_plt = confirmed_RFI_results[rfi_number][1]
         for rfi_idx in range(t1_plt, t2_plt):
-            RFI_freq_mask[rfi_idx] = 1
+            RFI_time_mask[rfi_idx] = 1
 
-    rfi_idxes = np.array(np.where(RFI_freq_mask == 1))
+    rfi_idxes = np.array(np.where(RFI_time_mask == 1))
     return rfi_idxes
 #TODO: I hate the naming of this return
