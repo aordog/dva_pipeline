@@ -48,7 +48,22 @@ def Combine_Into_RFI_Events(possible_RFI):
 #**************************************************************************************
 #                                  Freq-Domain Functions
 #**************************************************************************************
-def Spectrum_Start_Found(time_array, spectrum_power_array, idx, slope_threshold):
+def ValidateStart(idx, delta):
+    if (idx-delta) <= 0:
+        validaded_start = 0
+    else:
+        validaded_start = idx-delta
+    return validaded_start
+
+def ValidateEnd(idx, delta, array):
+    if (idx+delta) >= (len(array)-1):
+        validaded_end = (len(array)-1)
+    else:
+        validaded_end = idx+delta
+    return validaded_end
+
+
+def Spectrum_Start_Found(spectrum_power_array, idx, slope_threshold):
     RFI_Start_Found = False
     spectrum_gradient = np.gradient(spectrum_power_array, 3)
     current_slope = spectrum_gradient[idx-1]
@@ -65,14 +80,15 @@ def Spectrum_End_Found(spectrum_power_array, rfi_end_idx, RFI_start_value):
         retVal = True
     return retVal
 
-def Spectrum_Scan(time_array, spectrum_power_array, freq_idx, slope_threshold, df): #NOTE: This might be an issue if I have a nan value on my array
+def Spectrum_Scan(spectrum_power_array, freq_idx, slope_threshold, df): #NOTE: This might be an issue if I have a nan value on my array
     scan_bandwidth = 10 #[MHz]
-    start_idx = int(freq_idx - int((scan_bandwidth/df)/2))  #This changes the bandwidth from MHz to idxes
-    end_idx = int(freq_idx + int((scan_bandwidth/df)/2))
+    #TODO: I have to make sure the start_idx and end_idx don't go over at the edges
+    start_idx = ValidateStart(freq_idx, int((scan_bandwidth/df)/2))  #This changes the bandwidth from MHz to idxes
+    end_idx = ValidateEnd(freq_idx, int((scan_bandwidth/df)/2), spectrum_power_array)
     RFI_confirmed = False
     RFI_spectral_thickness = 0
     for rfi_start_idx in range(start_idx, end_idx):                                             #Scan over the entire bandwith interval
-        if(Spectrum_Start_Found(time_array, spectrum_power_array, rfi_start_idx, slope_threshold)):     #If I found the starting pattern
+        if(Spectrum_Start_Found(spectrum_power_array, rfi_start_idx, slope_threshold)):     #If I found the starting pattern
             RFI_start_value = spectrum_power_array[rfi_start_idx]
             rfi_minimum_length = 10     #This exists to avoid the algorithm from fake crossing near the start due to fluctuations.
             for rfi_end_idx in range(rfi_start_idx + rfi_minimum_length, end_idx):                                   #Finish looking at the bandwidth interval looking for the end
@@ -100,10 +116,10 @@ def DVA_Find_Possible_RFI_Events(freq_idx, baseline_multiplier, polarized_set):
     possible_RFI_events = Combine_Into_RFI_Events(possible_RFI_idxes[0])
     return possible_RFI_events  #Returns [time_idx, idx_duration]
 
-def RFI_Verification(possible_RFI_events, freq_slope_threshold, event, freq_idx, t_plt, polarized_set):
+def RFI_Verification(possible_RFI_events, freq_slope_threshold, event, freq_idx, polarized_set, df):
     rfi_confirmed = False
     for time_idx in range(possible_RFI_events[event][0], possible_RFI_events[event][0]+ possible_RFI_events[event][1]):
-        event_verification_result = Spectrum_Scan(t_plt, polarized_set[time_idx, :], freq_idx, freq_slope_threshold)
+        event_verification_result = Spectrum_Scan(polarized_set[time_idx, :], freq_idx, freq_slope_threshold, df)
         if event_verification_result[0]:
             rfi_confirmed = True
             break
@@ -145,7 +161,7 @@ def DVA_Find_Possible_Event_End(freq_idx, polarized_set, possible_RFI_events):
 #**************************************************************************************
 #                                  Main Function
 #**************************************************************************************
-def RFI_Detection(freq_slope_threshold, freq_idx, baseline_multiplier, polarized_set):
+def RFI_Detection(freq_slope_threshold, freq_idx, baseline_multiplier, polarized_set, df):
     confirmed_RFI_results = []
     possible_RFI_events = DVA_Find_Possible_RFI_Events(freq_idx, baseline_multiplier, polarized_set)
     possible_RFI_starts = DVA_Find_Possible_Event_Start(freq_idx, polarized_set, possible_RFI_events)
@@ -155,29 +171,30 @@ def RFI_Detection(freq_slope_threshold, freq_idx, baseline_multiplier, polarized
         for event in range(0, len(possible_RFI_events)-1):
             fixed_RFI_bandwitdh = 15
                 # DETERMINE RFI REGION --------------------------------------------------------------------------------------------------------
-            # t1_plt = possible_RFI_events[event][0]                                      #Start time     [idx]
-            t1_plt = possible_RFI_starts[event]                                           #Start time     [idx]
-            # t2_plt = possible_RFI_events[event][0] + possible_RFI_events[event][1]      #End time       [idx]
-            t2_plt = possible_RFI_ends[event]                                             #End time       [idx]
-            freq1 = freq_idx - fixed_RFI_bandwitdh                                        #Start freq     [idx]
-            freq2 = freq_idx + fixed_RFI_bandwitdh                                        #End freq       [idx]
+            # # t1_plt = possible_RFI_events[event][0]                                      #Start time     [idx]
+            # t1_plt = possible_RFI_starts[event]                                           #Start time     [idx]
+            # # t2_plt = possible_RFI_events[event][0] + possible_RFI_events[event][1]      #End time       [idx]
+            # t2_plt = possible_RFI_ends[event]                                             #End time       [idx]
+            # freq1 = freq_idx - fixed_RFI_bandwitdh                                        #Start freq     [idx]
+            # freq2 = freq_idx + fixed_RFI_bandwitdh                                        #End freq       [idx]
 
-            confirmed_RFI_results.append([t1_plt, t2_plt, freq1, freq2])
-            # rfi_confirmed, event_verification_result = RFI_Verification(possible_RFI_events, freq_slope_threshold, event, freq_idx)      
-            # if rfi_confirmed:  
-            #     # DETERMINE RFI REGION --------------------------------------------------------------------------------------------------------
-            #     t1_plt = possible_RFI_events[event][0]                                      #Start time     [idx]
-            #     t2_plt = possible_RFI_events[event][0] + possible_RFI_events[event][1]      #End time       [idx]
-            #     freq1 = event_verification_result[1]                                        #Start freq     [idx]
-            #     freq2 = event_verification_result[2]                                        #End freq       [idx]
+            # confirmed_RFI_results.append([t1_plt, t2_plt, freq1, freq2])
+            rfi_confirmed, event_verification_result = RFI_Verification(possible_RFI_events, freq_slope_threshold, event, freq_idx, polarized_set, df)      
+            if rfi_confirmed:  
+                # DETERMINE RFI REGION --------------------------------------------------------------------------------------------------------
+                # t1_plt = possible_RFI_events[event][0]                                        #Start time     [idx]
+                # t2_plt = possible_RFI_events[event][0] + possible_RFI_events[event][1]        #End time       [idx]
+                t1_plt = possible_RFI_starts[event]                                             #Start time     [idx]
+                t2_plt = possible_RFI_ends[event]                                               #End time       [idx]
+                freq1 = event_verification_result[1]                                            #Start freq     [idx]
+                freq2 = event_verification_result[2]                                            #End freq       [idx]
 
-            #     confirmed_RFI_results.append([t1_plt, t2_plt, freq1, freq2])
+                confirmed_RFI_results.append([t1_plt, t2_plt, freq1, freq2])
 
 
         # print("Number of confirmed RFI regions:", len(confirmed_RFI_results))
 
-    
-    return confirmed_RFI_results
+    return confirmed_RFI_results, len(possible_RFI_events), len(confirmed_RFI_results)
 
 # confirmed_RFI_results = RFI_Detection(freq_slope_threshold = 1e5, freq_chosen = 844, baseline_multiplier = 3)
 
