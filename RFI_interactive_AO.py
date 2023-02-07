@@ -35,8 +35,10 @@ def compare_persistent_masks(phase,day):
 
     #filename1 = '/home/ordoga/Python/DVA2/DATA/RFIpersist_mask.txt' 
     #filename2 = '/home/ordoga/Python/DVA2/DATA/PersistRFImaskNewJustIndexBad.txt'
-    filename1 = '/home/ordoga/Python/DVA2/DATA/PersistRFImaskNewJustIndexBad.txt'
-    filename2 = '/home/ordoga/Python/DVA2/DATA/PersistRFImaskNewJustIndexBad_v2.txt'
+    #filename1 = '/home/ordoga/Python/DVA2/DATA/PersistRFImaskNewJustIndexBad.txt'
+    #filename2 = '/home/ordoga/Python/DVA2/DATA/PersistRFImaskNewJustIndexBad_v2.txt'
+    filename1 = '/home/aordog/Python/DVA2/DATA/RFIpersist_mask/PersistRFImaskNewJustIndexBad.txt'
+    filename2 = '/home/aordog/Python/DVA2/DATA/RFIpersist_mask/PersistRFImaskNewJustIndexBad_v2.txt'
     RFI_mask_idx_old = persistent_mask(filename1)
     RFI_mask_idx_new = persistent_mask(filename2)
     
@@ -66,7 +68,8 @@ def do_RFI_excision(phase,day):
     LL_set[noise_idx, :] = np.nan
     #RR_set[noise_idx, :] = np.nan
 
-    RFI_mask_idx = persistent_mask()
+    filename2 = '/home/aordog/Python/DVA2/DATA/RFIpersist_mask/PersistRFImaskNewJustIndexBad_v2.txt'
+    RFI_mask_idx = persistent_mask(filename2)
 
     total_OG_mask,total_baseline_mask,total_freq_mask = DVA_Plot_RFI(PI_set, LL_set, freq, t_plt, RFI_mask_idx)
 
@@ -94,7 +97,8 @@ def do_RFI_excision(phase,day):
 
 def pick_scan(phase,day):
     
-    directory = '/media/ordoga/15m_band1_survey/dva_phase'+str(phase)+'/survey_phase'+str(phase)+'_day'+f"{day:02}"+'/'
+    #directory = '/media/ordoga/15m_band1_survey/dva_phase'+str(phase)+'/survey_phase'+str(phase)+'_day'+f"{day:02}"+'/'
+    directory = '/home/aordog/Python/DVA2/DATA/sample_az_scans/'
     
     print('')
     scan_id = []
