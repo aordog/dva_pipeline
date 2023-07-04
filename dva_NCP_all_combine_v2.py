@@ -14,7 +14,7 @@ import gc
 #from matplotlib.dates import MinuteLocator as MinuteLocator
 
 def combine(dir_files,outfiles,outname,filetype=3,noise_file=None,freq_avg=False,
-            df=1.0e6, fmin=351.0e6, fmax = 1030.0e6,*args,**kwargs):
+            df=1.0e6, fmin=351.0e6, fmax = 1030.0e6,bintype='mean',*args,**kwargs):
   
     # Filetype = 1: no metadata, no noise state in .h5
     # Filetpye = 2: positions in metadata, no noise state in .h5
@@ -56,7 +56,7 @@ def combine(dir_files,outfiles,outname,filetype=3,noise_file=None,freq_avg=False
     imRL_set[:,RFI_mask_idx_new] = np.nan
     
     if freq_avg == True:
-        frq_arr,RR_avg,LL_avg,reRL_avg,imRL_avg = bin_data_and_freq(RR_set,LL_set,reRL_set,imRL_set,freq,df,fmin,fmax)
+        frq_arr,RR_avg,LL_avg,reRL_avg,imRL_avg = bin_data_and_freq(RR_set,LL_set,reRL_set,imRL_set,freq,df,fmin,fmax,bintype)
     
         make_new_file(outname,outfiles,all_files[0],RR_avg, LL_avg, reRL_avg, imRL_avg,
                       t_set,az_set,el_set,frq_arr,noise_set)
@@ -285,7 +285,7 @@ def get_data_products(all_files,nt,nf,nf_all,filetype):
     return RR_set,LL_set,reRL_set,imRL_set
 
 
-def bin_data_and_freq(RR_set,LL_set,reRL_set,imRL_set,freq,df,fmin,fmax):
+def bin_data_and_freq(RR_set,LL_set,reRL_set,imRL_set,freq,df,fmin,fmax,bintype='mean',*args,**kwargs):
     
     frq_arr = np.arange(fmin,fmax,df)
     print(frq_arr)
@@ -301,10 +301,18 @@ def bin_data_and_freq(RR_set,LL_set,reRL_set,imRL_set,freq,df,fmin,fmax):
     for i in range(0,len(frq_arr)):
         print(frq_arr[i])
         w = np.where((freq >= frq_arr[i]-df/2.) & (freq <= frq_arr[i]+df/2.))[0]
-        RR_avg[:,i] = np.nanmean(RR_set[:,w],axis=1)
-        LL_avg[:,i] = np.nanmean(LL_set[:,w],axis=1)
-        reRL_avg[:,i] = np.nanmean(reRL_set[:,w],axis=1)
-        imRL_avg[:,i] = np.nanmean(imRL_set[:,w],axis=1)
+        if bintype == 'mean':
+            print('Using mean')
+            RR_avg[:,i] = np.nanmean(RR_set[:,w],axis=1)
+            LL_avg[:,i] = np.nanmean(LL_set[:,w],axis=1)
+            reRL_avg[:,i] = np.nanmean(reRL_set[:,w],axis=1)
+            imRL_avg[:,i] = np.nanmean(imRL_set[:,w],axis=1)
+        if bintype == 'med':
+            print('Using median')
+            RR_avg[:,i] = np.nanmedian(RR_set[:,w],axis=1)
+            LL_avg[:,i] = np.nanmedian(LL_set[:,w],axis=1)
+            reRL_avg[:,i] = np.nanmedian(reRL_set[:,w],axis=1)
+            imRL_avg[:,i] = np.nanmedian(imRL_set[:,w],axis=1)
     
     return frq_arr, RR_avg, LL_avg, reRL_avg, imRL_avg
 
