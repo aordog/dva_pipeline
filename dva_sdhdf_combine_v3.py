@@ -40,7 +40,7 @@ from matplotlib.dates import HourLocator as HourLocator
 from matplotlib.dates import MinuteLocator as MinuteLocator
 
 def combine(dir_files,outfiles,t1,t2,outname,
-            transferfiles=False,freq_s=1,freq_avg=False,az_scan_trim=False,
+            transferfiles=False,freq_s=1,freq_avg=False,az_scan_trim=False,bintype='mean',
             *args,**kwargs):
        
     print('')
@@ -123,7 +123,7 @@ def combine(dir_files,outfiles,t1,t2,outname,
     t_set,az_set,el_set,ra_set,dec_set,nt,noise,int_time,corrupt = get_times_and_coords(all_files)
 
     
-    RR_set,LL_set,reRL_set,imRL_set = get_data_products(all_files,nt,nf,len(freq),freq_avg,freq_s)
+    RR_set,LL_set,reRL_set,imRL_set = get_data_products(all_files,nt,nf,len(freq),freq_avg,freq_s,bintype='mean')
     
     if az_scan_trim == True:
         trim_flag, wkeep = trim_azimuth_scans(RR_set,LL_set,reRL_set,imRL_set,t1,t2,
@@ -198,7 +198,7 @@ def get_times_and_coords(all_files):
     return t_set,az_set,el_set,ra_set,dec_set,nt,noise,int_time,corrupt
 
 
-def get_data_products(all_files,nt,nf,nf_all,avg_bands,step):    
+def get_data_products(all_files,nt,nf,nf_all,avg_bands,step,bintype='mean',*args,**kwargs):    
 
     file = h5py.File(all_files[0],'r')
     beam = file['data']['beam_0']
@@ -224,10 +224,18 @@ def get_data_products(all_files,nt,nf,nf_all,avg_bands,step):
                 reRL_set[ifile*nt:(ifile+1)*nt,i*nf:(i+1)*nf] = data[:,2,::step]
                 imRL_set[ifile*nt:(ifile+1)*nt,i*nf:(i+1)*nf] = data[:,3,::step]
             else:
-                RR_set[ifile*nt:(ifile+1)*nt,i*nf:(i+1)*nf] = np.nanmean(data[:,1,:].reshape(-1,nf,step),axis=2)
-                LL_set[ifile*nt:(ifile+1)*nt,i*nf:(i+1)*nf] = np.nanmean(data[:,0,:].reshape(-1,nf,step),axis=2)
-                reRL_set[ifile*nt:(ifile+1)*nt,i*nf:(i+1)*nf] = np.nanmean(data[:,2,:].reshape(-1,nf,step),axis=2)
-                imRL_set[ifile*nt:(ifile+1)*nt,i*nf:(i+1)*nf] = np.nanmean(data[:,3,:].reshape(-1,nf,step),axis=2)
+                if bintype == 'mean':
+                    print('Using mean')
+                    RR_set[ifile*nt:(ifile+1)*nt,i*nf:(i+1)*nf] = np.nanmean(data[:,1,:].reshape(-1,nf,step),axis=2)
+                    LL_set[ifile*nt:(ifile+1)*nt,i*nf:(i+1)*nf] = np.nanmean(data[:,0,:].reshape(-1,nf,step),axis=2)
+                    reRL_set[ifile*nt:(ifile+1)*nt,i*nf:(i+1)*nf] = np.nanmean(data[:,2,:].reshape(-1,nf,step),axis=2)
+                    imRL_set[ifile*nt:(ifile+1)*nt,i*nf:(i+1)*nf] = np.nanmean(data[:,3,:].reshape(-1,nf,step),axis=2)
+                if bintype == 'med':
+                    print('Using median')
+                    RR_set[ifile*nt:(ifile+1)*nt,i*nf:(i+1)*nf] = np.nanmedian(data[:,1,:].reshape(-1,nf,step),axis=2)
+                    LL_set[ifile*nt:(ifile+1)*nt,i*nf:(i+1)*nf] = np.nanmedian(data[:,0,:].reshape(-1,nf,step),axis=2)
+                    reRL_set[ifile*nt:(ifile+1)*nt,i*nf:(i+1)*nf] = np.nanmedian(data[:,2,:].reshape(-1,nf,step),axis=2)
+                    imRL_set[ifile*nt:(ifile+1)*nt,i*nf:(i+1)*nf] = np.nanmedian(data[:,3,:].reshape(-1,nf,step),axis=2)
                     
         file.close()
        
